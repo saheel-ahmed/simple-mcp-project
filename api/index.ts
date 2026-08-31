@@ -2,10 +2,6 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
 
-export const config = {
-    runtime: "edge",
-};
-
 interface Note {
     id: string;
     title: string;
@@ -302,7 +298,7 @@ async function handle(request: Request): Promise<Response> {
     <div class="card">
       <span class="badge">● Server Active & Online</span>
       <h1>Model Context Protocol (MCP) Demo</h1>
-      <p>This MCP server is live and running on Vercel Edge. AI clients (Claude, Cursor, Antigravity) can connect via Streamable HTTP / SSE.</p>
+      <p>This MCP server is live and running on Vercel Serverless. AI clients (Claude, Cursor, Antigravity) can connect via Streamable HTTP / SSE.</p>
       
       <h2>🛠️ Available Tools</h2>
       <ul>
