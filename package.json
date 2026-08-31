@@ -4,7 +4,10 @@
     "type": "module",
     "scripts": {
         "dev": "tsx src/index.ts",
-        "start": "tsx src/index.ts"
+        "start": "tsx src/index.ts",
+        "test": "tsx src/test-client.ts",
+        "build": "tsc",
+        "typecheck": "tsc --noEmit"
     },
     "dependencies": {
         "@modelcontextprotocol/sdk": "latest",
