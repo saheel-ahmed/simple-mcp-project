@@ -1,5 +1,6 @@
+import type { IncomingMessage, ServerResponse } from "node:http";
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 
 interface Note {
@@ -21,7 +22,7 @@ function createServer(): McpServer {
             {
                 id: "welcome",
                 title: "Welcome Note",
-                content: "Welcome to your demo MCP Server deployed live on Vercel Edge!",
+                content: "Welcome to your demo MCP Server deployed live on Vercel!",
                 createdAt: new Date().toISOString(),
             },
         ],
@@ -125,7 +126,7 @@ function createServer(): McpServer {
                     mimeType: "application/json",
                     text: JSON.stringify(
                         {
-                            runtime: "Vercel Edge Function",
+                            runtime: "Vercel Serverless Function (Node.js)",
                             timestamp: new Date().toISOString(),
                         },
                         null,
@@ -184,11 +185,11 @@ function createServer(): McpServer {
     return server;
 }
 
-let transport: WebStandardStreamableHTTPServerTransport | null = null;
+let transport: StreamableHTTPServerTransport | null = null;
 
-async function getTransport(): Promise<WebStandardStreamableHTTPServerTransport> {
+async function getTransport(): Promise<StreamableHTTPServerTransport> {
     if (!transport) {
-        transport = new WebStandardStreamableHTTPServerTransport({
+        transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: undefined,
             enableJsonResponse: true,
         });
@@ -198,30 +199,30 @@ async function getTransport(): Promise<WebStandardStreamableHTTPServerTransport>
     return transport;
 }
 
-async function handle(request: Request): Promise<Response> {
-    const url = new URL(request.url);
+export default async function handler(req: IncomingMessage, res: ServerResponse) {
+    try {
+        // Set CORS headers for remote MCP clients
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, mcp-session-id, last-event-id");
 
-    // Handle CORS preflight
-    if (request.method === "OPTIONS") {
-        return new Response(null, {
-            status: 204,
-            headers: {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, POST, OPTIONS, DELETE",
-                "Access-Control-Allow-Headers": "Content-Type, Authorization, mcp-session-id, last-event-id",
-            },
-        });
-    }
+        if (req.method === "OPTIONS") {
+            res.statusCode = 204;
+            res.end();
+            return;
+        }
 
-    const accept = request.headers.get("accept") || "";
-    const isBrowserRequest =
-        request.method === "GET" &&
-        !accept.includes("text/event-stream") &&
-        accept.includes("text/html");
+        const acceptHeader = (req.headers["accept"] as string) || "";
+        const isBrowserRequest =
+            req.method === "GET" &&
+            !acceptHeader.includes("text/event-stream") &&
+            acceptHeader.includes("text/html");
 
-    // If accessed via a browser directly, serve a rich status page
-    if (isBrowserRequest) {
-        const html = `<!DOCTYPE html>
+        if (isBrowserRequest) {
+            res.statusCode = 200;
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            const host = req.headers["host"] || "your-app.vercel.app";
+            res.end(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -324,66 +325,34 @@ async function handle(request: Request): Promise<Response> {
       <pre><code>{
   "mcpServers": {
     "vercel-mcp-server": {
-      "url": "https://${url.host}/api"
+      "url": "https://${host}/api"
     }
   }
 }</code></pre>
     </div>
   </div>
 </body>
-</html>`;
+</html>`);
+            return;
+        }
 
-        return new Response(html, {
-            status: 200,
-            headers: {
-                "Content-Type": "text/html; charset=utf-8",
-                "Access-Control-Allow-Origin": "*",
-            },
-        });
-    }
-
-    try {
-        const t = await getTransport();
-        const res = await t.handleRequest(request);
-        const headers = new Headers(res.headers);
-        headers.set("Access-Control-Allow-Origin", "*");
-        return new Response(res.body, {
-            status: res.status,
-            statusText: res.statusText,
-            headers,
-        });
-    } catch (err) {
-        return new Response(
-            JSON.stringify({
-                jsonrpc: "2.0",
-                error: { code: -32603, message: String(err) },
-                id: null,
-            }),
-            {
-                status: 500,
-                headers: {
-                    "Content-Type": "application/json",
-                    "Access-Control-Allow-Origin": "*",
-                },
-            }
-        );
+        const mcpTransport = await getTransport();
+        await mcpTransport.handleRequest(req, res);
+    } catch (error) {
+        console.error("Handler error:", error);
+        if (!res.headersSent) {
+            res.statusCode = 500;
+            res.setHeader("Content-Type", "application/json");
+            res.end(
+                JSON.stringify({
+                    jsonrpc: "2.0",
+                    error: {
+                        code: -32603,
+                        message: error instanceof Error ? error.message : String(error),
+                    },
+                    id: null,
+                })
+            );
+        }
     }
 }
-
-export async function GET(request: Request): Promise<Response> {
-    return handle(request);
-}
-
-export async function POST(request: Request): Promise<Response> {
-    return handle(request);
-}
-
-export async function OPTIONS(request: Request): Promise<Response> {
-    return handle(request);
-}
-
-export async function DELETE(request: Request): Promise<Response> {
-    return handle(request);
-}
-
-export default handle;
