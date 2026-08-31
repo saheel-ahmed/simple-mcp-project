@@ -6,7 +6,7 @@ async function runTests() {
 
     const transport = new StdioClientTransport({
         command: "npx",
-        args: ["tsx", "src/index.ts"],
+        args: ["tsx", "src/stdio.ts"],
     });
 
     const client = new Client(

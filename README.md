@@ -33,7 +33,7 @@ It is structured to run both **locally via Stdio** (for Claude Desktop, IDEs, In
 ## 🚀 Getting Started
 
 ### Prerequisites
-- Node.js (v18 or higher recommended)
+- Node.js (v18 or higher)
 - npm
 
 ### Installation
@@ -41,18 +41,20 @@ It is structured to run both **locally via Stdio** (for Claude Desktop, IDEs, In
 npm install
 ```
 
+### Development
+Run the server locally over Stdio:
+```bash
+npm run dev
+```
+
 ### Run Local Automated Test Suite
 ```bash
 npm test
 ```
 
-### Type Checking & Building
+### Type Checking
 ```bash
-# Type check without emitting files
 npm run typecheck
-
-# Build to dist/ directory
-npm run build
 ```
 
 ---
@@ -62,7 +64,7 @@ npm run build
 The official MCP Inspector provides an interactive web UI to test and debug your MCP server:
 
 ```bash
-npx @modelcontextprotocol/inspector tsx src/index.ts
+npx @modelcontextprotocol/inspector tsx src/stdio.ts
 ```
 
 Once running, open the URL provided in your terminal (usually `http://localhost:5173`) to test:
@@ -87,7 +89,7 @@ Add the following to your `claude_desktop_config.json`:
       "args": [
         "-y",
         "tsx",
-        "/Users/saheel-ahmed/Projects/demos/saheel-git-repo/simple-mcp-project/src/index.ts"
+        "/Users/saheel-ahmed/Projects/demos/saheel-git-repo/simple-mcp-project/src/stdio.ts"
       ]
     }
   }

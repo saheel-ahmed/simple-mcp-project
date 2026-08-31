@@ -3,10 +3,9 @@
     "version": "1.0.0",
     "type": "module",
     "scripts": {
-        "dev": "tsx src/index.ts",
-        "start": "tsx src/index.ts",
+        "dev": "tsx src/stdio.ts",
+        "start": "tsx src/stdio.ts",
         "test": "tsx src/test-client.ts",
-        "build": "tsc",
         "typecheck": "tsc --noEmit"
     },
     "dependencies": {
