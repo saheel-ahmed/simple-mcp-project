@@ -2,39 +2,44 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { createMcpServer } from "../src/server.js";
 
-// Stateless transport for Vercel Serverless Function
-const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined, // Stateless mode for serverless functions
-    enableJsonResponse: true,
-});
+let transport: StreamableHTTPServerTransport | null = null;
 
-const server = createMcpServer();
-await server.connect(transport);
+async function getTransport(): Promise<StreamableHTTPServerTransport> {
+    if (!transport) {
+        transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+            enableJsonResponse: true,
+        });
+        const server = createMcpServer();
+        await server.connect(transport);
+    }
+    return transport;
+}
 
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
-    // Set CORS headers for remote MCP clients
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, mcp-session-id, last-event-id");
+    try {
+        // Set CORS headers for remote MCP clients
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, DELETE");
+        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, mcp-session-id, last-event-id");
 
-    if (req.method === "OPTIONS") {
-        res.statusCode = 204;
-        res.end();
-        return;
-    }
+        if (req.method === "OPTIONS") {
+            res.statusCode = 204;
+            res.end();
+            return;
+        }
 
-    // If accessed via a web browser directly, render a clean status landing page
-    const acceptHeader = (req.headers["accept"] as string) || "";
-    const isBrowserRequest =
-        req.method === "GET" &&
-        !acceptHeader.includes("text/event-stream") &&
-        acceptHeader.includes("text/html");
+        const acceptHeader = (req.headers["accept"] as string) || "";
+        const isBrowserRequest =
+            req.method === "GET" &&
+            !acceptHeader.includes("text/event-stream") &&
+            acceptHeader.includes("text/html");
 
-    if (isBrowserRequest) {
-        res.statusCode = 200;
-        res.setHeader("Content-Type", "text/html; charset=utf-8");
-        const host = req.headers["host"] || "your-app.vercel.app";
-        res.end(`<!DOCTYPE html>
+        if (isBrowserRequest) {
+            res.statusCode = 200;
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            const host = req.headers["host"] || "your-app.vercel.app";
+            res.end(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -157,14 +162,13 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   </div>
 </body>
 </html>`);
-        return;
-    }
+            return;
+        }
 
-    // Delegate to MCP Streamable HTTP Transport
-    try {
-        await transport.handleRequest(req, res);
+        const mcpTransport = await getTransport();
+        await mcpTransport.handleRequest(req, res);
     } catch (error) {
-        console.error("Error handling MCP request:", error);
+        console.error("Handler error:", error);
         if (!res.headersSent) {
             res.statusCode = 500;
             res.setHeader("Content-Type", "application/json");
@@ -173,7 +177,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
                     jsonrpc: "2.0",
                     error: {
                         code: -32603,
-                        message: error instanceof Error ? error.message : "Internal Server Error",
+                        message: error instanceof Error ? error.stack || error.message : String(error),
                     },
                     id: null,
                 })
