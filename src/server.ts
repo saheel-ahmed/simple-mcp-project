@@ -371,20 +371,6 @@ ${code}
     return server;
 }
 
-let transport: StreamableHTTPServerTransport | null = null;
-
-async function getTransport(): Promise<StreamableHTTPServerTransport> {
-    if (!transport) {
-        transport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: undefined,
-            enableJsonResponse: true,
-        });
-        const server = createMcpServer();
-        await server.connect(transport);
-    }
-    return transport;
-}
-
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
     try {
         // Set CORS headers for remote MCP clients
@@ -522,8 +508,14 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
             return;
         }
 
-        const mcpTransport = await getTransport();
-        await mcpTransport.handleRequest(req, res);
+        // In stateless mode for Serverless Functions, create a fresh transport per request
+        const transport = new StreamableHTTPServerTransport({
+            sessionIdGenerator: undefined,
+            enableJsonResponse: true,
+        });
+        const server = createMcpServer();
+        await server.connect(transport);
+        await transport.handleRequest(req, res);
     } catch (error) {
         console.error("Handler error:", error);
         if (!res.headersSent) {
